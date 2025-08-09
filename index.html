@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>급식 정보 조회</title>
+    <style>
+        /* CSS 스타일 */
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&display=swap');
+
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #f8f9fa;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            padding-top: 40px;
+            margin: 0;
+        }
+
+        .container {
+            background-color: #ffffff;
+            padding: 30px 40px;
+            border-radius: 12px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+            width: 90%;
+            max-width: 700px;
+            text-align: center;
+        }
+
+        h1 {
+            color: #1a73e8;
+            margin-bottom: 25px;
+            font-weight: 700;
+        }
+
+        .input-group {
+            margin-bottom: 25px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        #date-input {
+            padding: 10px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 1rem;
+            width: 180px;
+            font-family: 'Noto Sans KR', sans-serif;
+        }
+
+        #date-input:focus {
+            outline: none;
+            border-color: #1a73e8;
+        }
+
+        #fetch-btn {
+            padding: 12px 24px;
+            background: linear-gradient(45deg, #1a73e8, #4285f4);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        #fetch-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        #loading {
+            display: none;
+            margin-top: 20px;
+            font-size: 1rem;
+            color: #5f6368;
+        }
+
+        #meal-info {
+            margin-top: 20px;
+            text-align: left;
+            border-top: 1px solid #e9ecef;
+            padding-top: 20px;
+        }
+        
+        .meal-card {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-left: 6px solid #1a73e8;
+            padding: 15px 20px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+        }
+
+        .meal-card h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            color: #1a73e8;
+            font-size: 1.2rem;
+        }
+        
+        .meal-card p {
+            margin: 0.5rem 0 0;
+            line-height: 1.7;
+            white-space: pre-wrap; /* 줄바꿈을 그대로 표시 */
+        }
+        
+        .meal-card strong {
+             color: #202124;
+        }
+
+        .info-message {
+            color: #5f6368;
+            font-size: 1rem;
+        }
+
+        .error-message {
+            color: #d93025;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>급식 정보 조회 서비스</h1>
+        <div class="input-group">
+            <input type="date" id="date-input">
+            <button id="fetch-btn">급식 정보 확인</button>
+        </div>
+        <div id="loading">데이터를 불러오는 중입니다...</div>
+        <div id="meal-info">
+            <p class="info-message">조회할 날짜를 선택한 후 '급식 정보 확인' 버튼을 눌러주세요.</p>
+        </div>
+    </div>
+
+    <script>
+        // JavaScript 코드
+        document.addEventListener('DOMContentLoaded', () => {
+            const dateInput = document.getElementById('date-input');
+            const fetchBtn = document.getElementById('fetch-btn');
+            const mealInfoDiv = document.getElementById('meal-info');
+            const loadingDiv = document.getElementById('loading');
+
+            // 페이지가 열릴 때 오늘 날짜를 기본으로 설정
+            dateInput.value = new Date().toISOString().split('T')[0];
+
+            fetchBtn.addEventListener('click', fetchMealData);
+            
+            // Enter 키로도 조회 가능하게 설정
+            dateInput.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    fetchMealData();
+                }
+            });
+
+
+            function fetchMealData() {
+                const selectedDate = dateInput.value;
+                if (!selectedDate) {
+                    alert('날짜를 선택해주세요.');
+                    return;
+                }
+
+                // 날짜 형식을 YYYY-MM-DD 에서 YYYYMMDD 로 변경
+                const formattedDate = selectedDate.replace(/-/g, '');
+
+                // API 정보 설정
+                const API_KEY = 'YOUR_API_KEY'; // !!! 중요: 여기에 발급받은 본인의 API 키를 입력하세요 !!!
+                const ATPT_OFCDC_SC_CODE = 'J10';   // 경기도교육청
+                const SD_SCHUL_CODE = '7530112';    // 학교 코드
+
+                if (API_KEY === 'YOUR_API_KEY') {
+                    mealInfoDiv.innerHTML = `<p class="error-message">※ [중요] JavaScript 코드의 'YOUR_API_KEY' 부분을 본인이 발급받은 인증키로 변경해야 정상 작동합니다.</p>`;
+                    return;
+                }
+                
+                // API 요청 URL
+                const url = `https://open.neis.go.kr/hub/mealServiceDietInfo`
+                          + `?KEY=${API_KEY}`
+                          + `&Type=xml`
+                          + `&pIndex=1`
+                          + `&pSize=100`
+                          + `&ATPT_OFCDC_SC_CODE=${ATPT_OFCDC_SC_CODE}`
+                          + `&SD_SCHUL_CODE=${SD_SCHUL_CODE}`
+                          + `&MLSV_YMD=${formattedDate}`;
+
+                mealInfoDiv.innerHTML = '';
+                loadingDiv.style.display = 'block';
+
+                fetch(url)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`네트워크 오류가 발생했습니다. (상태: ${response.status})`);
+                        }
+                        return response.text();
+                    })
+                    .then(str => (new window.DOMParser()).parseFromString(str, "text/xml"))
+                    .then(data => {
+                        loadingDiv.style.display = 'none';
+                        const result = data.getElementsByTagName('RESULT');
+
+                        // API 자체 에러 코드 확인 (예: 인증키 오류)
+                        if (result.length > 0) {
+                            const resultCode = result[0].getElementsByTagName('CODE')[0].textContent;
+                            if (resultCode !== 'INFO-000') {
+                                const resultMessage = result[0].getElementsByTagName('MESSAGE')[0].textContent;
+                                mealInfoDiv.innerHTML = `<p class="error-message">데이터 조회 실패: ${resultMessage}</p>`;
+                                return;
+                            }
+                        }
+                        
+                        const rows = data.getElementsByTagName('row');
+                        if (rows.length === 0) {
+                            mealInfoDiv.innerHTML = '<p class="info-message">해당 날짜의 급식 정보가 없습니다.</p>';
+                            return;
+                        }
+
+                        let htmlContent = '';
+                        for (const row of rows) {
+                            const mealType = row.getElementsByTagName('MMEAL_SC_NM')[0].textContent; // 조식, 중식, 석식
+                            // API에서 <br/> 태그로 오는 경우가 많으므로, 이를 실제 줄바꿈 문자로 변경
+                            const mealData = row.getElementsByTagName('DDISH_SNDDDT')[0].textContent.replace(/<br\s*\/?>/gi, '\n');
+                            const calInfo = row.getElementsByTagName('CAL_INFO')[0].textContent;
+
+                            htmlContent += `
+                                <div class="meal-card">
+                                    <h3>${mealType}</h3>
+                                    <p>${mealData}</p>
+                                    <p><strong>칼로리:</strong> ${calInfo}</p>
+                                </div>
+                            `;
+                        }
+                        mealInfoDiv.innerHTML = htmlContent;
+                    })
+                    .catch(error => {
+                        loadingDiv.style.display = 'none';
+                        mealInfoDiv.innerHTML = `<p class="error-message">오류 발생: ${error.message}. API 키와 인터넷 연결을 확인해주세요.</p>`;
+                        console.error('Fetch Error:', error);
+                    });
+            }
+        });
+    </script>
+
+</body>
+</html>
